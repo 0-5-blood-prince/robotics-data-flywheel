@@ -4,6 +4,14 @@ A Colab-first experiment testing whether failure-guided expert-data acquisition 
 
 [Open the complete notebook in Colab](https://colab.research.google.com/github/0-5-blood-prince/robotics-data-flywheel/blob/main/notebooks/flywheel.ipynb)
 
+## Development diagnostic notebook
+
+[Open development experiment in Colab](https://colab.research.google.com/github/0-5-blood-prince/robotics-data-flywheel/blob/main/notebooks/development.ipynb)
+
+Use this before another full study: paired checkpoint evaluation on fixed development starts; execution prefixes 2/4/8; 50-episode and all-data training references; coverage/action diagnostics; synchronized side-by-side videos. Drive storage is enabled by default. Quick mode validates execution; development mode measures learning. Existing checkpoints can be supplied to skip training. This does not yet incorporate an independently verified upstream policy implementation.
+
+The original flywheel notebook and all experiment code remain available unchanged.
+
 ## Notebook workflow
 
 1. Setup fetches this repository, checks imports, and resets/steps the simulator.
