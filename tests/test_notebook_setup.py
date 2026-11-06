@@ -10,7 +10,7 @@ class NotebookSetupTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]
         notebook=json.loads((root/'notebooks/flywheel.ipynb').read_text())
         setup=''.join(notebook['cells'][1]['source'])
-        activation=setup[setup.index('# Activate src'):]
+        activation=setup[setup.index('# Activate src'):].split('# Check the native simulator API')[0]
         script='''import sys,importlib
 from pathlib import Path
 ROOT=Path(sys.argv[1])

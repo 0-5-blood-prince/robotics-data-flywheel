@@ -7,6 +7,6 @@ version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.26,<3", "torch>=2.2,<3"]
 [project.optional-dependencies]
-simulation = ["gym-pusht==0.1.5", "zarr>=2.16,<3", "imageio[ffmpeg]>=2.34", "matplotlib>=3.8"]
+simulation = ["gym-pusht==0.1.5", "pymunk==6.11.1", "setuptools<81", "zarr>=2.16,<3", "imageio[ffmpeg]>=2.34", "matplotlib>=3.8"]
 [tool.setuptools.packages.find]
 where = ["src"]
