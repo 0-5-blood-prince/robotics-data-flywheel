@@ -194,4 +194,4 @@ These references informed the design; exact installed API and dataset schema rem
 
 ## Implementation review addendum
 
-See REVIEW.md for compatibility findings and corrections. The first implementation uses a custom compact conditional temporal U-Net; establishing learning competence is mandatory before acquisition experiments. The current notebook is an explicit synthetic smoke preview, not the completed experiment. Full final evaluation entails 13,000 rollouts before diagnostic and pilot overhead.
+See REVIEW.md for compatibility findings and corrections. The first implementation uses a custom compact conditional temporal U-Net; establishing learning competence is mandatory before acquisition experiments. The notebook now implements the pilot, three-round study, final evaluation, and reporting. A real-data quick study has passed CPU validation; full GPU performance remains unmeasured. Full final evaluation entails 13,000 rollouts before diagnostic and pilot overhead.

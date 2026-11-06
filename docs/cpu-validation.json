@@ -1,0 +1,102 @@
+{
+  "checkpoint_evaluations": 13,
+  "episodes": 206,
+  "performance_evidence": false,
+  "replay": {
+    "angle_tolerance": 0.1,
+    "episodes": [
+      {
+        "angle_rmse": 4.7033436614005404e-08,
+        "corrected_reset_state": [
+          222.0,
+          97.0,
+          222.9938201904297,
+          381.5990295410156,
+          3.0079994201660156
+        ],
+        "episode_id": 0,
+        "max_coverage": 0.8295940628503082,
+        "passed": true,
+        "position_rmse": 1.3689201394481796e-05,
+        "raw_reset_state": [
+          222.0,
+          97.0,
+          228.9876497042165,
+          471.1980654920276,
+          3.0079994201660156
+        ],
+        "reset_angle_error": 0.0,
+        "reset_position_error": 0.0,
+        "steps": 160
+      },
+      {
+        "angle_rmse": 2.3006674538296323e-07,
+        "corrected_reset_state": [
+          87.0,
+          285.0,
+          158.16250610351562,
+          357.1803283691406,
+          5.970620632171631
+        ],
+        "episode_id": 1,
+        "max_coverage": 0.855144451225054,
+        "passed": true,
+        "position_rmse": 2.2555479843282926e-05,
+        "raw_reset_state": [
+          87.0,
+          285.0,
+          144.3250035564273,
+          359.36066555800534,
+          5.970620632171631
+        ],
+        "reset_angle_error": 0.0,
+        "reset_position_error": 0.0,
+        "steps": 117
+      },
+      {
+        "angle_rmse": 2.1641508368886046e-07,
+        "corrected_reset_state": [
+          218.0,
+          65.0,
+          178.35867309570312,
+          211.54847717285153,
+          2.99981427192688
+        ],
+        "episode_id": 2,
+        "max_coverage": 0.8626821745650746,
+        "passed": true,
+        "position_rmse": 1.9257770514507496e-05,
+        "raw_reset_state": [
+          218.0,
+          65.0,
+          184.71734747176717,
+          301.09695930388705,
+          2.99981427192688
+        ],
+        "reset_angle_error": 0.0,
+        "reset_position_error": 2.842170943040401e-14,
+        "steps": 140
+      }
+    ],
+    "limitation": "Pose restoration lacks recorded velocities; divergence requires diagnosis, not threshold relaxation.",
+    "passed": true,
+    "position_tolerance": 5.0
+  },
+  "status": "passed",
+  "verified": [
+    "data load",
+    "expert replay",
+    "training",
+    "three acquisition rounds",
+    "all controls",
+    "resume",
+    "paired statistics",
+    "report",
+    "video decode"
+  ],
+  "video_shape": [
+    688,
+    688,
+    3
+  ]
+}

@@ -38,7 +38,7 @@ def atomic_save(path,value):
 def model_config(c):
     return dict(history=c.history,horizon=c.horizon,width=c.width,steps=c.diffusion_steps)
 
-def train_baseline(episodes,source,config,output="runs/baseline",device=None,compatibility=None):
+def train_baseline(episodes,source,config,output="runs/baseline",device=None,compatibility=None, selected_ids=None, parent_checkpoint=None):
     if not compatibility or not compatibility.get("passed"):
         raise ValueError("Real-data baseline requires a passed compatibility report")
     c=config;out=Path(output);out.mkdir(parents=True,exist_ok=True)
@@ -48,7 +48,13 @@ def train_baseline(episodes,source,config,output="runs/baseline",device=None,com
     torch.manual_seed(c.seed);rng=np.random.default_rng(c.seed)
     indices=rng.permutation(len(episodes))[:c.initial_episodes]
     selected=[episodes[int(i)] for i in indices]
-    data_manifest=manifest(selected,source_sha256=source["archive_sha256"])
+    if selected_ids is not None:
+        by_id={e.id:e for e in episodes}
+        if len(set(selected_ids))!=len(selected_ids): raise ValueError("Duplicate selected IDs")
+        selected=[by_id[i] for i in selected_ids]
+        if len(selected)!=c.initial_episodes: raise ValueError("Selected count differs from config")
+    parent_hash=hashlib.sha256(Path(parent_checkpoint).read_bytes()).hexdigest() if parent_checkpoint else None
+    data_manifest=manifest(selected,parent=parent_hash,source_sha256=source["archive_sha256"])
     # updates may be extended, but every other configuration field must match.
     contract=asdict(c);contract.pop("updates")
     run_id=digest(dict(config=contract,manifest=data_manifest))
@@ -56,11 +62,20 @@ def train_baseline(episodes,source,config,output="runs/baseline",device=None,com
     policy=DiffusionPolicy(**model_config(c)).to(device);ema=copy.deepcopy(policy)
     optimizer=torch.optim.AdamW(policy.parameters(),lr=c.learning_rate)
     checkpoint=out/"latest.pt";start=0;losses=[];elapsed=0.
+    if parent_checkpoint and not checkpoint.exists():
+        inherited=torch.load(parent_checkpoint,map_location="cpu",weights_only=False)
+        if inherited["model_config"]!=model_config(c): raise ValueError("Cannot change model when branching")
+        if not set(inherited["manifest"]["episode_ids"]).issubset({e.id for e in selected}):
+            raise ValueError("Acquisition must retain parent episodes")
+        inherited.update(run_id=run_id,manifest=data_manifest,config=asdict(c))
+        atomic_save(checkpoint,inherited)
     if checkpoint.exists():
         saved=torch.load(checkpoint,map_location=device,weights_only=False)
         if saved["run_id"]!=run_id:raise ValueError("Checkpoint config or data differs; use a new output directory")
         policy.load_state_dict(saved["model"]);ema.load_state_dict(saved["ema"]);optimizer.load_state_dict(saved["optimizer"])
-        start=saved["update"];losses=saved["losses"];elapsed=saved["elapsed_seconds"]
+        start=saved["update"]
+        if start>c.updates: raise ValueError("Checkpoint exceeds requested update budget")
+        losses=saved["losses"];elapsed=saved["elapsed_seconds"]
         rng.bit_generator.state=saved["numpy_rng"]
         torch.set_rng_state(saved["torch_rng"].cpu())
         if device.startswith("cuda") and saved["cuda_rng"] is not None:
