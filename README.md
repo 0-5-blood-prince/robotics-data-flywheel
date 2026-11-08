@@ -20,6 +20,12 @@ The original flywheel notebook and all experiment code remain available unchange
 
 Runs all four arms and three rounds for seed 11 using DDPM/execute 8. Uses the recorded development evidence instead of retraining the pilot. Change `TRAINING_SEED` to run later repeats in separate directories without overwriting previous results. One seed means 13 training stages and 2,600 evaluation rollouts. Drive persistence is enabled. Keep settings and code version fixed across repeats; results are exploratory until replicated.
 
+## Add success-guided selection to an existing run
+
+[Open success-guided extension in Colab](https://colab.research.google.com/github/0-5-blood-prince/robotics-data-flywheel/blob/main/notebooks/success_guided.ipynb)
+
+Runs only the new `success_guided` arm from your existing seed-11 baseline. A small success/failure classifier ranks demonstrations, inspired by [Demo-SCORE](https://arxiv.org/html/2503.03707v2). This is an acquisition adaptation, not a reproduction. Defaults use 200 separate classifier rollouts, three 10k-update acquisition stages, and 600 evaluation rollouts. The original controls are read from Drive and appended into new combined reports without retraining or reevaluation. See [method and validation](docs/SUCCESS_GUIDED.md).
+
 ## Notebook workflow
 
 1. Setup fetches this repository, checks imports, and resets/steps the simulator.
