@@ -14,6 +14,12 @@ Use this before another full study: paired checkpoint evaluation on fixed develo
 
 The original flywheel notebook and all experiment code remain available unchanged.
 
+## One seed first
+
+[Open one-seed exploratory study](https://colab.research.google.com/github/0-5-blood-prince/robotics-data-flywheel/blob/main/notebooks/single_seed.ipynb)
+
+Runs all four arms and three rounds for seed 11 using DDPM/execute 8. Uses the recorded development evidence instead of retraining the pilot. Change `TRAINING_SEED` to run later repeats in separate directories without overwriting previous results. One seed means 13 training stages and 2,600 evaluation rollouts. Drive persistence is enabled. Keep settings and code version fixed across repeats; results are exploratory until replicated.
+
 ## Notebook workflow
 
 1. Setup fetches this repository, checks imports, and resets/steps the simulator.
