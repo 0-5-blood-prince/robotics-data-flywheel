@@ -42,7 +42,10 @@ class DiffusionPolicy(nn.Module):
         error=(self(noisy,t,obs)-eps).square()*mask[:,:,None]
         return error.sum()/(mask.sum()*actions.shape[-1]).clamp_min(1)
     @torch.no_grad()
-    def sample(self,obs,generator=None):
+    def sample(self,obs,generator=None,inference_steps=None):
+        if inference_steps is not None:
+            if not 1 <= inference_steps <= self.steps: raise ValueError("Invalid inference step count")
+            return self.sample_ddim(obs,inference_steps,generator)
         x=torch.randn((len(obs),self.horizon,2),device=obs.device,generator=generator)
         for i in reversed(range(self.steps)):
             t=torch.full((len(obs),),i,device=obs.device,dtype=torch.long)
@@ -51,4 +54,20 @@ class DiffusionPolicy(nn.Module):
             prev=self.abar[i-1] if i else torch.ones_like(ab)
             variance=b*(1-prev)/(1-ab)
             x=mean if i==0 else mean+variance.sqrt()*torch.randn(x.shape,device=x.device,generator=generator)
+        return x
+
+    @torch.no_grad()
+    def sample_ddim(self,obs,inference_steps,generator=None):
+        """Deterministic DDIM trajectory after seeded initial noise; screening only.
+
+        Uses the existing training schedule. Changing sampling changes policy behavior
+        and must be recorded in evaluation identity and confirmed before final use.
+        """
+        x=torch.randn((len(obs),self.horizon,2),device=obs.device,generator=generator)
+        schedule=torch.linspace(self.steps-1,0,inference_steps,device=obs.device).round().long()
+        for index,timestep in enumerate(schedule):
+            t=timestep.expand(len(obs));ab=self.abar[timestep]
+            eps=self(x,t,obs);clean=(x-(1-ab).sqrt()*eps)/ab.sqrt()
+            prev=self.abar[schedule[index+1]] if index+1<len(schedule) else torch.ones_like(ab)
+            x=prev.sqrt()*clean+(1-prev).sqrt()*eps
         return x

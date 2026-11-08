@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from .baseline import BaselineConfig,train_baseline,load_policy
 from .selection import select,geometry,representatives
-from .artifacts import write_json,digest
+from .artifacts import write_json,digest,source_fingerprint
 from .rollout import evaluate
 
 ARMS=("continued","random","diversity","targeted")
@@ -43,6 +43,8 @@ class Protocol:
     minimum_progress:float=.02
     unsupported_distance:float=.5
     mode:str="full"
+    development_success_rate:float=0.
+    minimum_development_success:float=.2
 
     @classmethod
     def quick(cls):
@@ -51,6 +53,8 @@ class Protocol:
                    diagnostic_count=2,evaluation_count=2,max_steps=8,video_count=0,mode="quick")
 
     def validate(self,total):
+        if self.mode=="full" and self.development_success_rate<self.minimum_development_success:
+            raise ValueError("Learning gate failed: improve the development baseline before launching the full study")
         if self.mode not in ("quick","full"): raise ValueError("Unknown mode")
         positive=(self.rounds,self.acquire,self.initial_episodes,self.baseline_updates,self.round_updates,
                   self.batch_size,self.checkpoint_every,self.diagnostic_count,self.evaluation_count,
@@ -71,13 +75,13 @@ def freeze_protocol(protocol,source,episodes,output):
     h=hashlib.sha256()
     for ep in episodes:
         h.update(str(ep.id).encode());h.update(ep.states.tobytes());h.update(ep.actions.tobytes())
-    try: commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True,stderr=subprocess.DEVNULL).strip()
+    try: commit=subprocess.check_output(['git','-C',str(Path(__file__).resolve().parents[2]),'rev-parse','HEAD'],text=True,stderr=subprocess.DEVNULL).strip()
     except (OSError,subprocess.CalledProcessError):commit="unknown"
     versions={}
     for name in ('numpy','torch','gym-pusht','pymunk','zarr'):
         try:versions[name]=importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:versions[name]="unavailable"
-    content=dict(protocol=asdict(protocol),source_sha256=source['archive_sha256'],data_sha256=h.hexdigest(),code_commit=commit,versions=versions)
+    content=dict(protocol=asdict(protocol),source_sha256=source['archive_sha256'],data_sha256=h.hexdigest(),code_commit=commit,versions=versions,source_fingerprint=source_fingerprint())
     content['sha256']=digest(content)
     path=out/'frozen_protocol.json'
     if path.exists() and json.loads(path.read_text())!=content:
@@ -91,7 +95,7 @@ def failures_from_rollouts(summary,directory,protocol):
         if row['success']:continue
         path=Path(directory)/f"episode_{row['seed']}.npz"
         with np.load(path) as data:
-            states=data['states'];coverage=data['coverage'];n=len(states)
+            states=data['next_states'] if 'next_states' in data else np.vstack((data['states'][1:],data['final_state']));coverage=data['coverage'];n=len(states)
             if not n:continue
             w=protocol.stalled_window
             candidates=[i for i in range(w,n) if coverage[i]-coverage[i-w]<protocol.minimum_progress]

@@ -11,7 +11,7 @@ import torch
 from .data import Normalizer,encode
 from .policy import DiffusionPolicy
 from .train import train_updates
-from .artifacts import digest,manifest,write_json
+from .artifacts import digest,manifest,write_json,source_fingerprint
 
 @dataclass
 class BaselineConfig:
@@ -41,7 +41,12 @@ def model_config(c):
 def train_baseline(episodes,source,config,output="runs/baseline",device=None,compatibility=None, selected_ids=None, parent_checkpoint=None):
     if not compatibility or not compatibility.get("passed"):
         raise ValueError("Real-data baseline requires a passed compatibility report")
-    c=config;out=Path(output);out.mkdir(parents=True,exist_ok=True)
+    c=config
+    if c.batch_size<1 or c.width<4 or c.width%4 or c.history<1 or c.horizon<2 or c.horizon%2 or c.diffusion_steps<1:
+        raise ValueError("Invalid batch/model dimensions")
+    if not np.isfinite(c.learning_rate) or c.learning_rate<=0 or not 0<=c.ema_decay<1:
+        raise ValueError("Invalid optimizer/EMA settings")
+    out=Path(output);out.mkdir(parents=True,exist_ok=True)
     if not 1<=c.initial_episodes<=len(episodes) or c.updates<1 or c.checkpoint_every<1:
         raise ValueError("Invalid data or training budget")
     device=device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,6 +62,10 @@ def train_baseline(episodes,source,config,output="runs/baseline",device=None,com
     data_manifest=manifest(selected,parent=parent_hash,source_sha256=source["archive_sha256"])
     # updates may be extended, but every other configuration field must match.
     contract=asdict(c);contract.pop("updates")
+    content=hashlib.sha256()
+    for ep in selected:
+        content.update(ep.states.tobytes());content.update(ep.actions.tobytes())
+    contract.update(data_sha256=content.hexdigest(),source_sha256=source_fingerprint(),torch_version=str(torch.__version__),numpy_version=np.__version__)
     run_id=digest(dict(config=contract,manifest=data_manifest))
     obs=Normalizer.fit([encode(e.states) for e in selected]);act=Normalizer.fit([e.actions for e in selected])
     policy=DiffusionPolicy(**model_config(c)).to(device);ema=copy.deepcopy(policy)

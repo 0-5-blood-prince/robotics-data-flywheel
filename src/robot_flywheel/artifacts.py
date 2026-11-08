@@ -22,3 +22,12 @@ def manifest(episodes, parent=None, **metadata):
     if len(set(ids))!=len(ids): raise ValueError("Duplicate episode IDs")
     body=dict(episode_ids=ids,transitions=sum(len(e.states) for e in episodes),parent=parent,**metadata)
     return dict(body,sha256=digest(body))
+
+
+def source_fingerprint():
+    """Hash installed package source regardless of working directory or Git state."""
+    root=Path(__file__).resolve().parent
+    h=hashlib.sha256()
+    for path in sorted(root.glob('*.py')):
+        h.update(path.name.encode());h.update(path.read_bytes())
+    return h.hexdigest()

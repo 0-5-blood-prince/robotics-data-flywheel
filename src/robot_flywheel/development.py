@@ -23,7 +23,7 @@ def trace_metrics(directory, summary):
     return metrics
 
 
-def compare_checkpoints(checkpoints, output, seeds=range(1000,1020), prefixes=(2,4,8), max_steps=300, device=None, video_count=1):
+def compare_checkpoints(checkpoints, output, seeds=range(1000,1020), prefixes=(2,4,8), max_steps=300, device=None, video_count=1,inference_steps=None):
     seeds=list(seeds)
     if not seeds or any(s<1000 or s>=2000 for s in seeds):raise ValueError('Use development seeds 1000..1999 only')
     out=Path(output);out.mkdir(parents=True,exist_ok=True);records=[]
@@ -31,11 +31,12 @@ def compare_checkpoints(checkpoints, output, seeds=range(1000,1020), prefixes=(2
         model,on,an,sha=load_policy(path,device)
         saved=torch.load(path,map_location='cpu',weights_only=False)
         for prefix in prefixes:
-            directory=out/f'{sha[:12]}_execute{prefix}'
-            summary=evaluate(model,on,an,seeds,directory,sha,execute=prefix,max_steps=max_steps,video_count=video_count)
+            sampler='ddpm' if inference_steps is None else f'ddim{inference_steps}'
+            directory=out/f'{sha[:12]}_execute{prefix}_{sampler}_horizon{max_steps}'
+            summary=evaluate(model,on,an,seeds,directory,sha,execute=prefix,max_steps=max_steps,video_count=video_count,inference_steps=inference_steps)
             traces=trace_metrics(directory,summary);write_json(directory/'trace_metrics.json',traces)
             records.append(dict(label=label,checkpoint=str(path),checkpoint_hash=sha,updates=saved['update'],
-                expert_episodes=len(saved['manifest']['episode_ids']),execute=prefix,
+                sampler=sampler,expert_episodes=len(saved['manifest']['episode_ids']),execute=prefix,
                 success_rate=summary['success_rate'],mean_max_coverage=summary['mean_max_coverage'],
                 mean_final_coverage=float(np.mean([x['final_coverage'] for x in traces])),
                 near_success_failures=sum(x['near_success_failure'] for x in traces),

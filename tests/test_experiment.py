@@ -14,7 +14,7 @@ def fixture_evaluate(policy,on,an,seeds,output,checkpoint_id,**kwargs):
     out=Path(output);out.mkdir(parents=True,exist_ok=True);rows=[]
     for seed in seeds:
         states=np.tile([100.,100.,200.,200.,0.],(4,1))
-        np.savez(out/f'episode_{seed}.npz',states=states,coverage=np.zeros(4))
+        np.savez(out/f'episode_{seed}.npz',states=states,next_states=states,coverage=np.zeros(4))
         rows.append(dict(seed=seed,success=False,max_coverage=0.,initial_state=states[0].tolist()))
     summary=dict(rows=rows,success_rate=0.,mean_max_coverage=0.)
     write_json(out/'summary.json',summary);return summary

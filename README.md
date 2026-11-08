@@ -8,6 +8,8 @@ A Colab-first experiment testing whether failure-guided expert-data acquisition 
 
 [Open development experiment in Colab](https://colab.research.google.com/github/0-5-blood-prince/robotics-data-flywheel/blob/main/notebooks/development.ipynb)
 
+Development defaults now use five starts and 10-step DDIM screening, with original-DDPM confirmation available. See [review and measured speed](docs/REVIEW_FAST_FEEDBACK.md). Use new run directories after this update; old checkpoints remain evaluable.
+
 Use this before another full study: paired checkpoint evaluation on fixed development starts; execution prefixes 2/4/8; 50-episode and all-data training references; coverage/action diagnostics; synchronized side-by-side videos. Drive storage is enabled by default. Quick mode validates execution; development mode measures learning. Existing checkpoints can be supplied to skip training. This does not yet incorporate an independently verified upstream policy implementation.
 
 The original flywheel notebook and all experiment code remain available unchanged.

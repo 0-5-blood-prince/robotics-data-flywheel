@@ -66,25 +66,35 @@ def check_replay(episodes,output="runs/compatibility",count=3,position_tolerance
                 limitation="Pose restoration lacks recorded velocities; divergence requires diagnosis, not threshold relaxation.")
     write_json(out/"report.json",result);return result
 
-def evaluate(policy,obs_norm,action_norm,seeds,output,checkpoint_id,execute=8,max_steps=300,video_count=3):
+def evaluate(policy,obs_norm,action_norm,seeds,output,checkpoint_id,execute=8,max_steps=300,video_count=3,inference_steps=None):
     if not 1<=execute<=policy.horizon: raise ValueError("Invalid execution horizon")
     output=Path(output);output.mkdir(parents=True,exist_ok=True);policy.eval()
     device=next(policy.parameters()).device;rows=[]
-    identity=dict(checkpoint=checkpoint_id,seeds=list(seeds),execute=execute,max_steps=max_steps)
+    seeds=list(seeds)
+    if not seeds or len(set(seeds))!=len(seeds): raise ValueError("Nonempty unique seeds required")
+    identity=dict(schema_version=2,checkpoint=checkpoint_id,execute=execute,max_steps=max_steps,
+                  sampler="ddpm" if inference_steps is None else "ddim",inference_steps=inference_steps)
     signature=digest(identity)
     for index,seed in enumerate(seeds):
         path=output/f"episode_{seed}.json"
         if path.exists():
             import json
             row=json.loads(path.read_text())
-            if row["signature"]!=signature: raise ValueError("Evaluation directory belongs to a different configuration")
-            rows.append(row);continue
+            if row["signature"]!=signature: raise ValueError("Evaluation directory belongs to a different configuration; use a new directory")
+            trace_exists=False
+            try:
+                with np.load(output/f"episode_{seed}.npz") as trace:
+                    trace_exists=len(trace['actions'])==row['steps'] and len(trace['next_states'])==row['steps']
+            except (OSError,ValueError,KeyError): pass
+            video_exists=index>=video_count or (output/f"episode_{seed}.mp4").exists()
+            if trace_exists and video_exists:
+                rows.append(row);continue
         env=make_env(max_steps);writer=None
         try:
             state,info=env.reset(seed=int(seed));initial=state.copy()
             history=deque([state.copy() for _ in range(policy.history)],maxlen=policy.history)
             generator=torch.Generator(device=device).manual_seed(int(seed)+1_000_000)
-            states=[];actions=[];coverages=[];rewards=[];success=False;done=False;truncated=False
+            states=[];next_states=[];actions=[];coverages=[];rewards=[];success=False;done=False;truncated=False
             if index<video_count:
                 import imageio.v2 as imageio
                 writer=imageio.get_writer(str(output/f"episode_{seed}.mp4"),fps=10)
@@ -92,25 +102,27 @@ def evaluate(policy,obs_norm,action_norm,seeds,output,checkpoint_id,execute=8,ma
             while len(actions)<max_steps and not (done or truncated):
                 obs=obs_norm.transform(encode(np.asarray(history)))
                 with torch.no_grad():
-                    predicted=policy.sample(torch.as_tensor(obs[None],device=device),generator=generator)[0].cpu().numpy()
+                    predicted=policy.sample(torch.as_tensor(obs[None],device=device),generator=generator,inference_steps=inference_steps)[0].cpu().numpy()
                 planned=action_norm.inverse(predicted)
                 if not np.isfinite(planned).all(): raise FloatingPointError("Nonfinite policy actions")
                 for action in planned[:execute]:
                     action=np.clip(action,0,512).astype(np.float32)
                     states.append(state.copy());actions.append(action)
                     state,reward,done,truncated,info=env.step(action)
-                    history.append(state.copy());coverages.append(coverage(env,info));rewards.append(float(reward))
+                    next_states.append(state.copy());history.append(state.copy());coverages.append(coverage(env,info));rewards.append(float(reward))
                     success=success or bool(info.get("is_success",done))
                     if writer: writer.append_data(env.render())
                     if done or truncated or len(actions)>=max_steps: break
-            np.savez_compressed(output/f"episode_{seed}.npz",states=states,actions=actions,coverage=coverages,reward=rewards,final_state=state)
+            np.savez_compressed(output/f"episode_{seed}.npz",states=states,next_states=next_states,actions=actions,coverage=coverages,reward=rewards,final_state=state)
             row=dict(signature=signature,seed=int(seed),initial_state=initial.tolist(),inference_seed=int(seed)+1_000_000,
                      success=success,max_coverage=max(coverages,default=0.),steps=len(actions),terminated=bool(done),truncated=bool(truncated))
+            if writer:
+                writer.close();writer=None
             write_json(path,row);rows.append(row)
             print(f"Evaluation {index+1}/{len(seeds)}: success={success}, max coverage={row['max_coverage']:.3f}",flush=True)
         finally:
             if writer: writer.close()
             env.close()
-    summary=dict(**identity,episodes=len(rows),success_rate=float(np.mean([x["success"] for x in rows])),
+    summary=dict(**identity,seeds=seeds,episodes=len(rows),success_rate=float(np.mean([x["success"] for x in rows])),
                  mean_max_coverage=float(np.mean([x["max_coverage"] for x in rows])),rows=rows)
     write_json(output/"summary.json",summary);return summary
