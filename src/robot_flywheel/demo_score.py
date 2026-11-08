@@ -20,7 +20,9 @@ from .report import paired_interval
 
 @dataclass
 class ScoreConfig:
-    rollouts_per_checkpoint: int = 100
+    rollouts_per_checkpoint: int = 200
+    training_round: int = 2
+    validation_round: int = 3
     rollout_start: int = 300000
     classifier_steps: int = 1000
     check_every: int = 25
@@ -58,7 +60,7 @@ def fit_classifier(train, validation, config):
         raise ValueError('Classifier budgets must be positive')
     for name, (xs, ys) in [('training', train), ('validation', validation)]:
         if len(xs) != len(ys) or min(int((ys == 0).sum()), int((ys == 1).sum())) < c.min_per_class:
-            raise ValueError(f'{name}: need at least {c.min_per_class} successful and failed rollouts; increase rollout budget in a new output directory')
+            raise ValueError(f'{name}: found {int((ys == 1).sum())} successes and {int((ys == 0).sum())} failures; need at least {c.min_per_class} of each. Use more rollouts or different saved checkpoints in a new output directory.')
     torch.manual_seed(c.seed)
     all_x = np.concatenate(train[0])
     mean = all_x.mean(0); std = np.maximum(all_x.std(0), 1e-4)
@@ -105,7 +107,7 @@ def rank_episodes(episodes, saved):
 
 
 def prepare_success_guided(episodes, source, original, output, compatibility, config=None, device=None):
-    """Fit once using intermediate/final baseline checkpoints; never retrain old arms."""
+    """Fit once using saved continued-training checkpoints; never retrain old arms."""
     c = config or ScoreConfig(); original = Path(original); out = Path(output)
     old = json.loads((original / 'frozen_protocol.json').read_text())
     p = Protocol(**old['protocol'])
@@ -117,10 +119,19 @@ def prepare_success_guided(episodes, source, original, output, compatibility, co
     base = original / f'seed_{seed}' / 'baseline' / 'latest.pt'
     saved = torch.load(base, map_location='cpu', weights_only=False)
     if saved['update'] != p.baseline_updates: raise ValueError('Baseline update count differs')
-    early_step = max(p.checkpoint_every, (p.baseline_updates // 2 // p.checkpoint_every) * p.checkpoint_every)
-    early = base.parent / f'step_{early_step:07d}.pt'
-    if early == base or early_step >= p.baseline_updates: raise ValueError('Need two distinct baseline checkpoints')
-    paths = [early, base]
+    if not 1 <= c.training_round < c.validation_round <= p.rounds:
+        raise ValueError('Classifier rounds must be distinct increasing saved continued-training rounds')
+    paths = [original / f'seed_{seed}' / 'continued' / f'round_{r}' / 'latest.pt'
+             for r in (c.training_round, c.validation_round)]
+    for r, path in zip((c.training_round, c.validation_round), paths):
+        if not path.exists(): raise FileNotFoundError(f'Required saved classifier checkpoint missing: {path}')
+        teacher = torch.load(path, map_location='cpu', weights_only=False)
+        if teacher['update'] != p.baseline_updates + r*p.round_updates:
+            raise ValueError(f'Unexpected classifier checkpoint update count: {path}')
+        if teacher['manifest']['episode_ids'] != saved['manifest']['episode_ids']:
+            raise ValueError('Classifier checkpoints must use exactly the original baseline demonstrations')
+        if teacher['model_config'] != saved['model_config']:
+            raise ValueError('Classifier checkpoint model configuration differs from baseline')
     hashes = [hashlib.sha256(path.read_bytes()).hexdigest() for path in paths]
     if hashes[0] == hashes[1]: raise ValueError('Classifier checkpoints must differ')
     starts = set(range(c.rollout_start, c.rollout_start + 2*c.rollouts_per_checkpoint))
@@ -128,7 +139,7 @@ def prepare_success_guided(episodes, source, original, output, compatibility, co
     if c.rollouts_per_checkpoint < 1 or starts & reserved: raise ValueError('Invalid or overlapping classifier rollout starts')
     frozen = freeze_protocol(p, source, episodes, out)
     if frozen['data_sha256'] != old['data_sha256']: raise ValueError('Expert data differs from original study')
-    contract = dict(config=asdict(c), original_protocol=old['sha256'], checkpoints=hashes, protocol=frozen['sha256'])
+    contract = dict(config=asdict(c), original_protocol=old['sha256'], checkpoints=hashes, baseline_checkpoint=hashlib.sha256(base.read_bytes()).hexdigest(), protocol=frozen['sha256'])
     contract_path = out / 'classifier_contract.json'
     if contract_path.exists() and json.loads(contract_path.read_text()) != contract:
         raise ValueError('Classifier inputs changed; use a new extension directory')
@@ -137,7 +148,7 @@ def prepare_success_guided(episodes, source, original, output, compatibility, co
     if not artifact.exists():
         datasets = []
         for index, path in enumerate(paths):
-            print(f'Classifier rollout checkpoint {index+1}/2: {path.name}', flush=True)
+            print(f'Classifier rollout checkpoint {index+1}/2: {path}', flush=True)
             model, on, an, sha = load_policy(path, device)
             directory = out / f'classifier_rollouts_{index}'
             start = c.rollout_start + index*c.rollouts_per_checkpoint
@@ -164,7 +175,7 @@ def run_success_guided(episodes, source, original, output, compatibility, device
     if digest(contract) != fitted['contract_hash']: raise ValueError('Classifier changed')
     if not fitted['report']['beats_constant']: raise ValueError('Classifier does not beat constant validation predictor; inspect report before training')
     seed = p.training_seeds[0]; parent = original / f'seed_{seed}' / 'baseline' / 'latest.pt'
-    if hashlib.sha256(parent.read_bytes()).hexdigest() != contract['checkpoints'][1]: raise ValueError('Original baseline changed')
+    if hashlib.sha256(parent.read_bytes()).hexdigest() != contract['baseline_checkpoint']: raise ValueError('Original baseline changed')
     saved = torch.load(parent, map_location='cpu', weights_only=False)
     cfg = BaselineConfig(**saved['config']); acquired = list(saved['manifest']['episode_ids'])
     ranking = rank_episodes(episodes, fitted); records = []

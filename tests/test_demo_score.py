@@ -22,7 +22,7 @@ class DemoScoreTests(unittest.TestCase):
 
     def test_rejects_insufficient_classes(self):
         data=([np.ones((4,6),dtype=np.float32)]*10,np.zeros(10,dtype=np.float32))
-        with self.assertRaisesRegex(ValueError,'successful and failed'):
+        with self.assertRaisesRegex(ValueError,'successes and'):
             fit_classifier(data,data,ScoreConfig())
 
     def test_trajectory_reader_uses_pre_action_states_only(self):
@@ -72,6 +72,9 @@ class DemoScoreTests(unittest.TestCase):
                 self.assertEqual(r['episodes'],4+r['round'])
                 state=torch.load(r['checkpoint'],weights_only=False)
                 self.assertEqual(state['update'],4+2*r['round'])
+                selection=json.loads((Path(r['checkpoint']).parent/'selection.json').read_text())
+                if r['round']==1:
+                    self.assertEqual(selection['parent_checkpoint'],before[str(original/'seed_11/baseline/latest.pt')])
             with patch('robot_flywheel.demo_score.evaluate',side_effect=AssertionError('Unexpected rollout')):
                 prepare_success_guided(episodes,source,original,out,{'passed':True},c,'cpu')
                 with patch('robot_flywheel.baseline.train_updates',side_effect=AssertionError('Unexpected retraining')):
