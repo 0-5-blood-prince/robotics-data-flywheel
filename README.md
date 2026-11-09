@@ -32,6 +32,14 @@ Runs only the new `success_guided` arm from your existing seed-11 baseline. A sm
 
 CPU-only analysis of the existing original and success-guided runs: trajectory-level ROC-AUC/AP with bootstrap intervals, prefix-versus-tail score comparisons, acquisition geometry and novelty, paired outcomes, coverage loss, and deterministic example traces. It reads saved artifacts without training, running policy inference, or simulating new episodes. Writes CSVs, figures, and `evidence_report.md` to `success_guided_v3_evidence`. Classifier validation and reused evaluation results are explicitly exploratory. All analysis cells were executed locally against synthetic saved-run artifacts; Drive mounting and your actual artifact results require the Colab run.
 
+## Failure-start acquisition
+
+[Open the failure-start notebook in Colab](https://colab.research.google.com/github/0-5-blood-prince/robotics-data-flywheel/blob/main/notebooks/failure_start.ipynb)
+
+Runs only a new `failure_start` arm from the existing 20k baseline. A [Mulligan-inspired](https://arxiv.org/html/2610.05882v1) fixed-pool adaptation assigns half the acquisition slots to nearest demonstrations at failed starting states and fills the rest with initial-state diversity. Unlike the paper, it does not collect new expert supervision at exact failed starts. It uses no classifier.
+
+Defaults to one round (20 diagnostic rollouts, 20 acquired episodes, 10k updates, 200 evaluations), comparing with the same round of existing controls. Set `ROUNDS_TO_RUN=3` later to extend without repeating completed training. New outputs go to `failure_start_v1_seed11`; original and success-guided artifacts are retained. Severity is approximated by low maximum coverage; matches use object position, relative agent position, and periodic orientation. Distances and selection reasons are logged. This is exploratory and does not establish performance gains.
+
 ## Notebook workflow
 
 1. Setup fetches this repository, checks imports, and resets/steps the simulator.
