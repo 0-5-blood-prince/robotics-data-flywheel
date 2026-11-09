@@ -40,6 +40,12 @@ Runs only a new `failure_start` arm from the existing 20k baseline. A [Mulligan-
 
 Defaults to one round (20 diagnostic rollouts, 20 acquired episodes, 10k updates, 200 evaluations), comparing with the same round of existing controls. Set `ROUNDS_TO_RUN=3` later to extend without repeating completed training. New outputs go to `failure_start_v1_seed11`; original and success-guided artifacts are retained. Severity is approximated by low maximum coverage; matches use object position, relative agent position, and periodic orientation. Distances and selection reasons are logged. This is exploratory and does not establish performance gains.
 
+## Replicate round two with training seed 22
+
+[Open the two-arm seed-22 notebook](https://colab.research.google.com/github/0-5-blood-prince/robotics-data-flywheel/blob/main/notebooks/failure_start_seed22.ipynb)
+
+Trains a fresh shared seed-22 baseline and only random/failure-start arms for two rounds. The primary endpoint is fixed at round two: 90 expert episodes and 40k updates per arm. Total new compute: 60k optimizer updates, 40 diagnostic rollouts, and 1,000 evaluations across five checkpoints. It preserves seed-11 artifacts and compares against the same evaluation starts; this measures variability across training runs, not performance on an untouched evaluation suite. The new seed changes the initial subset as well as model/training randomness. Includes shared-parent verification, matched budgets, paired intervals, and a descriptive seed-11/22 table.
+
 ## Notebook workflow
 
 1. Setup fetches this repository, checks imports, and resets/steps the simulator.
