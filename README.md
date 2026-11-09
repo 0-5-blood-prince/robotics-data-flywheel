@@ -26,6 +26,12 @@ Runs all four arms and three rounds for seed 11 using DDPM/execute 8. Uses the r
 
 Runs only the new `success_guided` arm from your existing seed-11 baseline. A small success/failure classifier ranks demonstrations, inspired by [Demo-SCORE](https://arxiv.org/html/2503.03707v2). This is an acquisition adaptation, not a reproduction. Defaults use 400 separate classifier rollouts from saved continued-training checkpoints, three 10k-update acquisition stages, and 600 evaluation rollouts. The original controls are read from Drive and appended into new combined reports without retraining or reevaluation. See [method and validation](docs/SUCCESS_GUIDED.md).
 
+## Diagnose selection using saved evidence
+
+[Open the evidence audit in Colab](https://colab.research.google.com/github/0-5-blood-prince/robotics-data-flywheel/blob/main/notebooks/evidence_audit.ipynb)
+
+CPU-only analysis of the existing original and success-guided runs: trajectory-level ROC-AUC/AP with bootstrap intervals, prefix-versus-tail score comparisons, acquisition geometry and novelty, paired outcomes, coverage loss, and deterministic example traces. It reads saved artifacts without training, running policy inference, or simulating new episodes. Writes CSVs, figures, and `evidence_report.md` to `success_guided_v3_evidence`. Classifier validation and reused evaluation results are explicitly exploratory. All analysis cells were executed locally against synthetic saved-run artifacts; Drive mounting and your actual artifact results require the Colab run.
+
 ## Notebook workflow
 
 1. Setup fetches this repository, checks imports, and resets/steps the simulator.
